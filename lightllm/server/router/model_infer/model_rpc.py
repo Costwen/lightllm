@@ -29,6 +29,7 @@ from lightllm.models.yi.model import YiTpPartModel
 from lightllm.models.mistral.model import MistralTpPartModel
 from lightllm.models.llava.model import LlavaTpPartModel
 from lightllm.models.qwen_vl.model import QWenVLTpPartModel
+from lightllm.models.cogvlm.model import CogVLMTpPartModel
 from lightllm.utils.infer_utils import set_random_seed
 from lightllm.utils.infer_utils import calculate_time, mark_start, mark_end
 from .pre_process import prepare_decode_inputs, prepare_prefill_inputs, splitfuse_prepare_decode_inputs
@@ -70,6 +71,9 @@ class ModelRpcServer(rpyc.Service):
         model_cfg, _ = PretrainedConfig.get_config_dict(
             weight_dir
         )
+        
+        if "cogvlm" in weight_dir.lower():
+            model_cfg["model_type"] = "cogvlm"
 
         model_kvargs = {
             "tp_rank": self.tp_rank,
@@ -135,6 +139,9 @@ class ModelRpcServer(rpyc.Service):
                 self.model = MixtralTpPartModel(model_kvargs)
             elif self.model_type == "llava":
                 self.model = LlavaTpPartModel(model_kvargs)
+                self.is_multimodal = True
+            elif self.model_type == "cogvlm":
+                self.model = CogVLMTpPartModel(model_kvargs)
                 self.is_multimodal = True
             else:
                 raise Exception(f"can not support {self.model_type} now")

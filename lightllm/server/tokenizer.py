@@ -28,6 +28,7 @@ from lightllm.utils.log_utils import init_logger
 logger = init_logger(__name__)
 from ..models.llava.model import LlavaTokenizer
 from ..models.qwen_vl.model import QWenVLTokenizer
+from ..models.cogvlm.model import CogVLMTokenizer
 
 
 # A fast LLaMA tokenizer with the pre-processed `tokenizer.json` file.
@@ -58,7 +59,14 @@ def get_tokenizer(
         # tokenizer = convert_slow_tokenizer(tokenizer)
         # return tokenizer
 
+    model_cfg, _ = PretrainedConfig.get_config_dict(tokenizer_name)
+    
+    if "cogvlm" in tokenizer_name.lower():
+        model_cfg["model_type"] = "cogvlm"
+
     try:
+        if model_cfg["model_type"] == "cogvlm":
+            tokenizer_name = "lmsys/vicuna-7b-v1.5"
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=trust_remote_code, *args,
                                                   **kwargs)
     except TypeError as e:
@@ -68,11 +76,12 @@ def get_tokenizer(
         tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, trust_remote_code=trust_remote_code, *args,
                                                   **kwargs)
 
-    model_cfg, _ = PretrainedConfig.get_config_dict(tokenizer_name)
     if model_cfg["model_type"] == "llava":
         tokenizer = LlavaTokenizer(tokenizer)
     elif model_cfg["model_type"] == "qwen" and "visual" in model_cfg:
         tokenizer = QWenVLTokenizer(tokenizer)
+    elif model_cfg["model_type"] == "cogvlm":
+        tokenizer = CogVLMTokenizer(tokenizer)
 
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         logger.info(
