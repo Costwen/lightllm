@@ -18,15 +18,26 @@ class CogVLMInferStateInfo(InferStateInfo):
                 position_id += list(np.arange(4, b_seq_len_numpy[i]-1224))
                 position_ids.append(np.array(position_id))
 
+            vision_token_mask = torch.zeros_like(input_ids)
+            vision_token_mask[:, 2:1227] = 1.0
+            language_token_mask = 1.0 - vision_token_mask
+            self.mask = (vision_token_mask, language_token_mask)
+
+
             position_ids = torch.from_numpy(np.concatenate(position_ids, axis=0)).cuda()
             self.position_cos = torch.index_select(model._cos_cached, 0, position_ids).view(position_ids.shape[0], -1)
             self.position_sin = torch.index_select(model._sin_cached, 0, position_ids).view(position_ids.shape[0], -1)
             position_ids = None
         else:
             position_ids = self.b_seq_len - 1225
+            vision_token_mask = torch.zeros_like(input_ids)
+            vision_token_mask[:, 2:1227] = 1.0
+            language_token_mask = 1.0 - vision_token_mask
+            self.mask = (vision_token_mask, language_token_mask)
             self.position_cos = torch.index_select(model._cos_cached, 0, position_ids).view(self.b_seq_len.shape[0], -1)
             self.position_sin = torch.index_select(model._sin_cached, 0, position_ids).view(self.b_seq_len.shape[0], -1)
             self.other_kv_index = self.req_manager.req_to_token_indexs[self.b_req_idx[0], 0].item()
             # b_loc[0, max_len_in_batch - 1].item()
+
         return
 
