@@ -18,34 +18,30 @@ class CogVLMTransformerLayerInfer(LlamaTransformerLayerInfer):
     
     def _get_qkv(self, input_emb, cache_k, cache_v, infer_state: CogVLMInferStateInfo, layer_weight:CogVLMTransformerLayerWeight):
         vision_token_mask, language_token_mask = infer_state.mask
-        
         vision_q = torch.mm(input_emb.view(-1, self.embed_dim_), layer_weight.vision_q_weight_)
         vision_k = torch.mm(input_emb.view(-1, self.embed_dim_), layer_weight.vision_k_weight_)
-        print(vision_k.shape)
-        print(cache_k.shape)
         vision_v = torch.mm(input_emb.view(-1, self.embed_dim_), layer_weight.vision_v_weight_)
+
         language_q = torch.mm(input_emb.view(-1, self.embed_dim_), layer_weight.language_q_weight_)
         language_k = torch.mm(input_emb.view(-1, self.embed_dim_), layer_weight.language_k_weight_)
         language_v = torch.mm(input_emb.view(-1, self.embed_dim_), layer_weight.language_v_weight_)
-        q = vision_q.view(-1, self.tp_q_head_num_, self.head_dim_) * vision_token_mask + language_q.view(-1, self.tp_q_head_num_, self.head_dim_) * language_token_mask
+        
+        q = (vision_q * vision_token_mask + language_q * language_token_mask).view(-1, self.tp_q_head_num_, self.head_dim_)
+        k = (vision_k * vision_token_mask + language_k * language_token_mask).view(-1, self.tp_k_head_num_, self.head_dim_)
+        v = (vision_v * vision_token_mask + language_v * language_token_mask).view(-1, self.tp_v_head_num_, self.head_dim_)
 
         rotary_emb_fwd(q, infer_state.position_cos, infer_state.position_sin)
+        rotary_emb_fwd(k, infer_state.position_cos, infer_state.position_sin)
 
-
-        torch.mm(input_emb.view(-1, self.embed_dim_), layer_weight.k_weight_,
-                    out=cache_k.view(-1, self.tp_k_head_num_ * self.head_dim_))
-        
-        rotary_emb_fwd(cache_k, infer_state.position_cos, infer_state.position_sin)
-
-        torch.mm(input_emb.view(-1, self.embed_dim_), layer_weight.v_weight_,
-                    out=cache_v.view(-1, self.tp_v_head_num_ * self.head_dim_))
+        cache_k.copy_(k)
+        cache_v.copy_(v)
         return q, cache_k, cache_v
     
     def _get_o(self, input, infer_state:CogVLMInferStateInfo, layer_weight:CogVLMTransformerLayerWeight)->torch.Tensor:
         vision_token_mask, language_token_mask = infer_state.mask
-        vison_o_tensor = torch.einsum('bln,nd->bld', input, layer_weight.vision_o_weight_)
-        language_o_tensor = torch.einsum('bln,nd->bld', input, layer_weight.language_o_weight_)
-        o_tensor = vison_o_tensor * vision_token_mask + language_o_tensor * language_token_mask
+        vision_o_tensor = torch.mm(input.view(-1, self.tp_o_head_num_ * self.head_dim_), layer_weight.vision_expert_dense)
+        language_o_tensor = torch.mm(input.view(-1, self.tp_o_head_num_ * self.head_dim_), layer_weight.language_expert_dense)
+        o_tensor = vision_o_tensor * vision_token_mask + language_o_tensor * language_token_mask
         return o_tensor
 
 

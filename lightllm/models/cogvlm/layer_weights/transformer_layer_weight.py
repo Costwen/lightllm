@@ -65,7 +65,7 @@ class CogVLMTransformerLayerWeight(TransformerLayerWeight):
             self.ffn_norm_weight_ = self._cuda(weights[f"model.layers.{self.layer_num_}.post_attention_layernorm.weight"])
 
         # ffn params
-        inter_size = self.network_config_['intermediate_size'] // 2
+        inter_size = self.network_config_['intermediate_size']
         split_inter_size = inter_size // self.world_size_
 
         if f"model.layers.{self.layer_num_}.mlp.language_mlp.up_proj.weight" in weights:
