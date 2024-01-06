@@ -43,7 +43,7 @@ class VisualModelRpcServer(rpyc.Service):
                 self.model.load_model(weight_dir)
                 self.model = self.model.cuda()
             elif self.model_type == 'cogvlm':
-                self.model = EVA2CLIPModel(model_cfg)
+                self.model = EVA2CLIPModel(model_cfg).eval().bfloat16()
                 self.model.load_model(weight_dir)
                 self.model = self.model.cuda()
             else:

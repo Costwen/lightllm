@@ -137,9 +137,10 @@ class EVA2CLIPModel(nn.Module):
     def encode(self, images):
         image_list = []
         for im in images:
+            im = im.convert("RGB")
             im = self.image_processor(im)
             image_list.append(im)
-        pixel_values = torch.stack(image_list, dim=0).cuda()
+        pixel_values = torch.stack(image_list, dim=0).cuda().bfloat16()
         outputs = self(pixel_values)
         return outputs
 
