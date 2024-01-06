@@ -142,7 +142,7 @@ class EVA2CLIPModel(nn.Module):
             image_list.append(im)
         pixel_values = torch.stack(image_list, dim=0).cuda().bfloat16()
         outputs = self(pixel_values)
-        return outputs
+        return outputs.to(torch.float16)
 
     def forward(self, images: "tensor(B, C, H, W)") -> "tensor(B, L, D)":
         x = self.patch_embedding(images)
