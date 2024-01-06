@@ -3,6 +3,7 @@ from torch import nn
 import xformers.ops as xops
 from transformers.activations import ACT2FN
 from argparse import Namespace
+from torchvision import transforms
 
 class PatchEmbedding(nn.Module):
     def __init__(self, config):
@@ -123,6 +124,21 @@ class EVA2CLIPModel(nn.Module):
         self.linear_proj = GLU(config, in_features=vision_config.hidden_size)
         self.boi = nn.Parameter(torch.zeros(1, 1, config.hidden_size))
         self.eoi = nn.Parameter(torch.zeros(1, 1, config.hidden_size))
+        self.image_processor = transforms.Compose(
+            [
+                transforms.Resize(
+                    (config.vision_config["image_size"], config.vision_config["image_size"]), interpolation=transforms.InterpolationMode.BICUBIC
+                ),
+                transforms.ToTensor(),
+                transforms.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+            ]
+        )
+
+    def encode(self, images):
+        images = self.image_processor(images)
+        pixel_values = self.image_processor(images)
+        outputs = self(pixel_values)
+        return outputs
 
     def forward(self, images: "tensor(B, C, H, W)") -> "tensor(B, L, D)":
         x = self.patch_embedding(images)
